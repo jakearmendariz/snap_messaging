@@ -1,0 +1,97 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Messaging over the WEEEEB</title>
+    <script src="//code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+    <script type="text/javascript" charset="utf-8">
+        $(document).ready(function() {
+            namespace = '/test';
+            var socket = io(namespace);
+            socket.on('connect', function() {
+                socket.emit('my_event', {data: 'I\'m connected!'});
+            });
+            socket.on('my_response', function(msg, cb) {
+                $('#log').append('<br>' + $('<div/>').text(msg.user+ ': ' + msg.data).html());
+                if (cb)
+                    cb();
+            });
+
+            socket.on('update_chat', function(messages, cb) {
+                $('#log').empty()
+                $.each(messages, function(i, msg) {
+                    console.log("Adding message", msg)
+                    $('#log').append('<br>' + $('<div/>').text(msg.user+ ': ' + msg.data).html());
+                });
+                if (cb)
+                    cb();
+            });
+
+            var ping_pong_times = [];
+            var start_time;
+            window.setInterval(function() {
+                start_time = (new Date).getTime();
+                socket.emit('my_ping');
+            }, 1000);
+
+
+            socket.on('my_pong', function() {
+                var latency = (new Date).getTime() - start_time;
+                ping_pong_times.push(latency);
+                ping_pong_times = ping_pong_times.slice(-30); // keep last 30 samples
+                var sum = 0;
+                for (var i = 0; i < ping_pong_times.length; i++)
+                    sum += ping_pong_times[i];
+                $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
+            });
+
+            $('form#broadcast').submit(function(event) {
+                socket.emit('my_broadcast_event', {data: $('#broadcast_data').val(), delay:$('#delay').val()});
+                document.getElementById('broadcast_data').value = '';
+                return false;
+            });
+
+
+            $('form#disconnect').submit(function(event) {
+                socket.emit('disconnect_request');
+                return false;
+            });
+        });
+        
+    </script>
+    <style>
+        body{
+            margin:70px;
+            /* font-family:'Franklin Gothic Medium', 'Arial', Arial, sans-serif */
+        }
+        h1 {
+            margin-bottom:10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Brand new cutting edge technology</h1>
+    Its like snapchat images, your messages will disappear after x seconds of you sending them
+    <form id="name-form" method="POST" action=''>
+        <label>Your name</label><br>
+        <input type="text" name="name" id="name" placeholder="Your Name" value="{{name}}">
+        <input type="submit" value="save">
+    </form>
+    <p>Average ping/pong latency: <b><span id="ping-pong"></span>ms</b></p>
+    <h2>Message with Jake</h2>
+   
+
+    <div id="log">
+        {% for message in messages %}
+            {{message['user']}}:{{message['data']}}<br>
+        {% endfor %}
+    </div>
+    
+    <form id="broadcast" method="POST" action='#'>
+        <input type="text" name="broadcast_data" id="broadcast_data" placeholder="Message" ><br>
+        <label>Message-server-lifetime in seconds</label><br>
+        <input type="number" name="delay" id="delay" value = 15><br>
+        <input type="submit" value="Send" >
+    </form>
+</body>
+</html>
